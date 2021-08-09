@@ -156,10 +156,14 @@ def process_mbox(mbox_filename, filters={}, year=None, verbose=False):
 
     # Sort based on arrow object
     emails = sorted(emails, key=lambda x: x[-1])
+    filtered_emails = sorted(filtered_emails, key=lambda x: x[-2])
 
     # Convert list to desired string format
     date_format = "M/D/YY"
     emails = [[*email[:-1], email[-1].format(date_format)] for email in emails]
+
+    emails.insert(0, ["Subject", "From", "To", "Date"])
+    filtered_emails.insert(0, ["Subject", "From", "To", "DateTime", "Reason"])
 
     return [emails, count, filtered_emails]
 
