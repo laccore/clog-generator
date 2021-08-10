@@ -60,11 +60,7 @@ def check_date_format(message):
             break
         except:
             continue
-
-    if a_date:
-        return a_date
-    else:
-        return False
+    return a_date
 
 
 def check_year(date, year, verbose=False):
@@ -81,16 +77,17 @@ def check_filters(email, filters):
     fail_reason = ""
 
     if from_address.address in filters["emails"]:
-        fail_reason = f"Filtered on from address: {from_address.address}"
+        fail_reason = ["From Address", from_address.address]
         return (False, fail_reason)
     elif from_address.hostname in filters["domains"]:
-        fail_reason = f"Filtered on from domain: {from_address.hostname}"
+        fail_reason = ["Domain", from_address.hostname]
+
         return (False, fail_reason)
     else:
         for keyword in filters["subjects"]:
             if keyword in subject:
                 passed = False
-                fail_reason = f'Filtered on keyword "{keyword}": {subject}'
+                fail_reason = ["Keyword", keyword]
                 return (False, fail_reason)
     return (passed, fail_reason)
 
@@ -104,7 +101,8 @@ def clean_header(header, verbose=False):
         )
     except:
         if verbose:
-            print(f"Failed to properly decode/reencode header:")
+            print(f"Failed to properly decode/reencode header. Send to Alex.")
+            print("Header:")
             print(header)
         return header
 
@@ -131,13 +129,12 @@ def process_mbox(mbox_filename, filters={}, year=None, verbose=False):
 
         if not a_date:
             # Invalid date format
-            filter_reason = f"Invalid date format. Send this line to Alex to fix."
-            filtered_emails.append(email.append(filter_reason))
+            filter_reason = ["Invalid date format. Send this line to Alex to fix.", ""]
+            filtered_emails.append(email + filter_reason)
         elif not check_year(a_date, year):
             # Valid date format, invalid year
-            filter_reason = f'Filtered on year: {a_date.format("YYYY")}'
-            email.append(filter_reason)
-            filtered_emails.append(email)
+            filter_reason = ["Year", a_date.format("YYYY")]
+            filtered_emails.append(email + filter_reason)
         else:
             # Valid date format, valid year
             # Check against filters, if using filters
@@ -146,8 +143,7 @@ def process_mbox(mbox_filename, filters={}, year=None, verbose=False):
                 if passed_filters:
                     emails.append(email)
                 else:
-                    email.append(filter_reason)
-                    filtered_emails.append(email)
+                    filtered_emails.append(email + filter_reason)
             else:
                 emails.append(email)
 
@@ -156,14 +152,16 @@ def process_mbox(mbox_filename, filters={}, year=None, verbose=False):
 
     # Sort based on arrow object
     emails = sorted(emails, key=lambda x: x[-1])
-    filtered_emails = sorted(filtered_emails, key=lambda x: x[-2])
+    filtered_emails = sorted(filtered_emails, key=lambda x: x[-3])
 
     # Convert list to desired string format
     date_format = "M/D/YY"
     emails = [[*email[:-1], email[-1].format(date_format)] for email in emails]
 
     emails.insert(0, ["Subject", "From", "To", "Date"])
-    filtered_emails.insert(0, ["Subject", "From", "To", "DateTime", "Reason"])
+    filtered_emails.insert(
+        0, ["Subject", "From", "To", "DateTime", "Filter Reason", "Filter Value"]
+    )
 
     return [emails, count, filtered_emails]
 
