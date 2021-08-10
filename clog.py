@@ -70,17 +70,14 @@ def check_year(date, year, verbose=False):
 
 
 def check_filters(email, filters):
-    passed = True
     subject = email[0]
     from_address = address.parse(email[1])
-    fail_reason = ""
 
     if from_address.address in filters["emails"]:
         fail_reason = ["From Address", from_address.address]
         return (False, fail_reason)
     elif from_address.hostname in filters["domains"]:
         fail_reason = ["Domain", from_address.hostname]
-
         return (False, fail_reason)
     else:
         for keyword in filters["subjects"]:
@@ -88,7 +85,7 @@ def check_filters(email, filters):
                 passed = False
                 fail_reason = ["Keyword", keyword]
                 return (False, fail_reason)
-    return (passed, fail_reason)
+    return (True, "")
 
 
 def clean_header(header, verbose=False):
@@ -188,6 +185,13 @@ def main():
         metavar="Year",
         help="Exclude emails not from this year",
         default=datetime.datetime.now().year - 1,
+    ),
+    parser.add_argument(
+        "-f",
+        "--filter",
+        metavar="Filter",
+        action="store_true",
+        help="Filter emails against known ignore lists",
     )
     parser.add_argument(
         "-v",
@@ -219,12 +223,12 @@ def main():
     )
 
     # Export data
-    print(f"Beginning export of {len(emails)} emails to {output_filename}...")
+    print(f"Beginning export of {len(emails)-1} emails to {output_filename}...")
     export_emails(emails, output_filename)
     export_emails(filtered_emails, filtered_filename)
 
     print(
-        f"{message_count} emails were found and {len(emails)} were exported to {output_filename}."
+        f"{message_count} emails were found and {len(emails)-1} were exported to {output_filename}."
     )
     print(f"Completed in {round((timeit.default_timer()-start_time), 2)} seconds.")
 
