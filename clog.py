@@ -1,7 +1,6 @@
 import csv
 import datetime
 import mailbox
-import os.path
 import re
 import timeit
 from email.header import decode_header, make_header
