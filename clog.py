@@ -82,7 +82,6 @@ def check_filters(email, filters):
     else:
         for keyword in filters["subjects"]:
             if keyword in subject:
-                passed = False
                 fail_reason = ["Keyword", keyword]
                 return (False, fail_reason)
     return (True, "")
@@ -97,7 +96,7 @@ def clean_header(header, verbose=False):
         )
     except:
         if verbose:
-            print(f"Failed to properly decode/reencode header. Send to Alex.")
+            print(f"Failed to properly decode/reencode header. Send text below to Alex.")
             print("Header:")
             print(header)
         return header
