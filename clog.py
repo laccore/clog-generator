@@ -12,12 +12,14 @@ from gooey import Gooey, GooeyParser
 
 class Email:
     def __init__(self, subject, from_address, to_address, date):
-        self.valid_date = False
+        self.valid_date = True
         self.valid_headers = True
-        self.from_address = clean_header(from_address)
-        self.to_address = clean_header(to_address)
-        self.subject = clean_header(subject)
+        self.from_address = self._clean_header(from_address)
+        self.to_address = self._clean_header(to_address)
+        self.subject = self._clean_header(subject)
         self.date = self._validate_date(date)
+        self.year = self._find_year(self.date)
+        self.us_date = self.date.format("M/D/YY")
 
     def _validate_date(self, date):
         date_formats = [
@@ -31,24 +33,26 @@ class Email:
             r"MM/D/YY,[\s+]H[\s+]mm[.*]",
         ]
 
-        a_date = None
-        for d_format in date_formats:
+        arrow_date = None
+        for date_format in date_formats:
             try:
-                a_date = arrow.get(date, d_format)
+                arrow_date = arrow.get(date, date_format)
                 break
             except:
                 continue
-
-        if not a_date:
-            print(
-                f"ALERT: '{date}' does not match any expected format. Excluding email with subject '{self.subject}'."
-            )
+        if not arrow_date:
+            self.valid_date = False
             return date
         else:
-            self.valid_date = True
-            return a_date
+            return arrow_date
 
-    def clean_header(self, header):
+    def _find_year(self, date):
+        if isinstance(date, arrow.Arrow):
+            return date.year
+        else:
+            return None
+
+    def _clean_header(self, header):
         try:
             return (
                 str(make_header(decode_header(re.sub(r"\s\s+", " ", header))))
@@ -56,9 +60,6 @@ class Email:
                 else ""
             )
         except:
-            # if verbose:
-            #     print(f"Failed to properly decode/reencode header:")
-            #     print(header)
             self.valid_headers = False
             return header
 
@@ -67,30 +68,19 @@ class Email:
             f"From:\t\t{self.from_address}",
             f"To:\t\t{self.to_address}",
             f"Subject:\t{self.subject}",
-            f"Date:\t\t{self.date}",
+            f"Date:\t\t{self.date} ({self.year})",
+            f"US Date:\t{self.us_date}",
             f"Valid Date:\t{self.valid_date}",
             f"Valid Headers:\t{self.valid_headers}",
         ]
         return "\n".join(out_str)
 
-
-def clean_header(header, verbose=False):
-    try:
-        return (
-            str(make_header(decode_header(re.sub(r"\s\s+", " ", header))))
-            if header
-            else ""
-        )
-    except:
-        if verbose:
-            print(f"Failed to properly decode/reencode header:")
-            print(header)
-        return header
+    def __iter__(self):
+        return iter([self.subject, self.from_address, self.to_address, self.us_date])
 
 
 def process_mbox(mbox_filename, year=None, verbose=False):
     count = 0
-    ignored = 0
     emails = []
 
     if verbose and year:
@@ -102,37 +92,8 @@ def process_mbox(mbox_filename, year=None, verbose=False):
             Email(message["Subject"], message["From"], message["To"], message["Date"])
         )
 
-        # for email in mailbox:
-        #   instantiate Email
-        #           (clean headers, validate date)
-        #   validate date
-
-        # else:
-        #     if year and (a_date.format("YYYY") != year):
-        #         ignored += 1
-        #         if verbose:
-        #             print(f"INFO: Invalid year found ({a_date.format('YYYY')}).")
-
-        #     else:
-        #         data = [
-        #             clean_header(message["Subject"], verbose),
-        #             clean_header(message["From"], verbose),
-        #             clean_header(message["To"], verbose),
-        #             a_date,
-        #         ]
-
-        #         emails.append(data)
-
         if verbose and (count % 1000 == 0):
             print(f"INFO: {count} emails processed.")
-
-    # # TODO fix sorting  issue
-    # # Sort based on arrow object
-    # emails = sorted(emails, key=lambda x: x[-1])
-
-    # # Convert list to desired string format
-    # date_format = "M/D/YY"
-    # emails = [[*email[:-1], email[-1].format(date_format)] for email in emails]
 
     return emails
 
@@ -179,23 +140,51 @@ def main():
     print(f"Beginning processing of {mailbox_filename}...")
     emails = process_mbox(mailbox_filename, args.year, args.verbose)
 
-    invalid_dates = [email for email in emails if email.valid_date]
-    invalid_headers = [email for email in emails if email.valid_headers]
-
-    emails = [email for email in emails if email.valid_headers and email.valid_date]
-
-    # TODO Delete this
+    invalid_dates = []
+    invalid_headers = []
+    validated_emails = []
     for email in emails:
-        print(email)
+        if not email.valid_date:
+            invalid_dates.append(email)
+        elif not email.valid_headers:
+            invalid_headers.append(email)
+        else:
+            validated_emails.append(email)
+
+    # Sort based on datetime
+    validated_emails = sorted(validated_emails, key=lambda x: x.date)
+
+    # Export data
+    print(f"Beginning export of {len(validated_emails)} emails to {output_filename}...")
+    export_emails(validated_emails, output_filename)
+
+    # Check for invalid dates
+    if invalid_dates:
+        print("\n--------- ALERT ---------")
+        print(
+            f"Found {len(invalid_dates)} date(s) that do not match any expected format."
+        )
+        print("Please email the below information to the project maintainer to fix.")
+
+        for invalid_email in invalid_dates:
+            print(invalid_email.date)
         print()
 
-    # # TODO Fix Exporting
-    # # Export data
-    # print(f"Beginning export of {len(emails)} emails to {output_filename}...")
-    # export_emails(emails, output_filename)
+    # Check for invalid headers
+    if invalid_headers:
+        print("\n--------- ALERT ---------")
+        print(
+            f"Found {len(invalid_headers)} headers that do not match any expected format."
+        )
+        print("Please email the below information to the project maintainer to fix.")
 
+        for invalid_email in invalid_headers:
+            print(invalid_email.header)
+        print()
+
+    num_emails_exported = len(emails) - (len(invalid_dates) + len(invalid_headers))
     print(
-        f"{len(emails)} emails were found and {'0000000'} were exported to {output_filename}."
+        f"{len(emails)} emails were found and {num_emails_exported} were exported to {output_filename}."
     )
     print(f"Completed in {round((timeit.default_timer()-start_time), 2)} seconds.")
 
