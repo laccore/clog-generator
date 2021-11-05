@@ -158,7 +158,7 @@ def export_bad_emails(bad_formats, output_filename):
     return None
 
 
-@Gooey(program_name="CSDCO CLOG Generator")
+@Gooey(program_name="CSD Contact Log (CLOG) Generator")
 def main():
     parser = GooeyParser(
         description="Export data (Subject, From, To, Date) from a .mbox file to a CSV"
