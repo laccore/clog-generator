@@ -91,7 +91,7 @@ class Email:
         )
 
 
-def process_mbox(mbox_filename, verbose=False):
+def process_mbox(mbox_filename):
     count = 0
     emails = []
 
@@ -101,14 +101,14 @@ def process_mbox(mbox_filename, verbose=False):
             Email(message["Subject"], message["From"], message["To"], message["Date"])
         )
 
-        if verbose and (count % 1000 == 0):
+        if count % 1000 == 0:
             print(f"INFO: {count} emails processed.")
 
     return emails, count
 
 
-def validate_and_sort_emails(emails, year=None, verbose=False):
-    if verbose and year:
+def validate_and_sort_emails(emails, year=None):
+    if year:
         print(f"Excluding emails not from year {year}.")
 
     # Check if emails had valid dates and headers
@@ -129,15 +129,15 @@ def validate_and_sort_emails(emails, year=None, verbose=False):
     return valid_emails, bad_formats
 
 
-def export_emails(emails, output_filename, exclude_subject=False, verbose=False):
-    if verbose and exclude_subject:
+def export_emails(emails, output_filename, exclude_subject=False):
+    if exclude_subject:
         print("Excluding email Subject field from export.")
 
     headers = ["Subject", "From Name", "From Email", "To", "Date"]
     with open(output_filename, "w", newline="", encoding="utf-8") as out_file:
         writer = csv.writer(out_file, quoting=csv.QUOTE_MINIMAL)
         if exclude_subject:
-            headers.pop(0)
+            headers = headers[1:]
             emails = [list(email)[1:] for email in emails]
         writer.writerow(headers)
         writer.writerows(emails)
@@ -188,36 +188,28 @@ def main():
         help="Exclude email Subject from exports",
         default=False,
     )
-    parser.add_argument(
-        "-v",
-        "--verbose",
-        metavar="Verbose",
-        action="store_true",
-        help="Print troubleshooting information",
-    )
 
     start_time = timeit.default_timer()
     args = parser.parse_args()
     mailbox_filename = args.mbox
     output_filename = mailbox_filename.replace(".mbox", ".csv")
     year = int(args.year)
-    verbose = args.verbose
     exclude_subject = args.nosubject
 
     # Process mailbox
-    print(f"Beginning processing of {mailbox_filename}...", end="\r")
-    emails, num_emails = process_mbox(mailbox_filename, verbose)
-    print(f"Processed mailbox {mailbox_filename}.        ", end="\n")
+    print(f"Beginning processing of {mailbox_filename}...")
+    emails, num_emails = process_mbox(mailbox_filename)
+    print(f"Processed mailbox {mailbox_filename}.")
 
     # Validate and sort emails
     (
         valid_emails,
         bad_formats,
-    ) = validate_and_sort_emails(emails, year, verbose)
+    ) = validate_and_sort_emails(emails, year)
 
     # Export data
     print(f"Beginning export of {len(valid_emails)} emails to {output_filename}...")
-    export_emails(valid_emails, output_filename, exclude_subject, verbose)
+    export_emails(valid_emails, output_filename, exclude_subject)
     if bad_formats:
         export_bad_emails(bad_formats, output_filename)
 
