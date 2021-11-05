@@ -104,6 +104,19 @@ def export_emails(emails, output_filename):
         writer.writerows(emails)
 
 
+def export_invalid_emails(invalid_dates, invalid_headers, output_filename):
+    with open(output_filename, "w", newline="", encoding="utf-8") as out_file:
+        writer = csv.writer(out_file, quoting=csv.QUOTE_MINIMAL)
+
+        if invalid_dates:
+            for invalid_email in invalid_dates:
+                writer.writerow(["Incorrect Date Format", invalid_email.date])
+
+        if invalid_headers:
+            for invalid_email in invalid_headers:
+                writer.writerow(["Incorrect Header Format", invalid_email.header])
+
+
 @Gooey(program_name="CSDCO CLOG Generator")
 def main():
     parser = GooeyParser(
@@ -140,6 +153,7 @@ def main():
     print(f"Beginning processing of {mailbox_filename}...")
     emails = process_mbox(mailbox_filename, args.year, args.verbose)
 
+    # Sort emails if they had valid dates and headers
     invalid_dates = []
     invalid_headers = []
     validated_emails = []
@@ -151,36 +165,21 @@ def main():
         else:
             validated_emails.append(email)
 
-    # Sort based on datetime
+    # Sort valid emails based on datetime
     validated_emails = sorted(validated_emails, key=lambda x: x.date)
 
     # Export data
     print(f"Beginning export of {len(validated_emails)} emails to {output_filename}...")
     export_emails(validated_emails, output_filename)
 
-    # Check for invalid dates
-    if invalid_dates:
-        print("\n--------- ALERT ---------")
+    # Export invalid dates/headers
+    if invalid_dates or invalid_headers:
+        invalid_output_filename = output_filename.replace(".csv", "_invalid_emails.csv")
+        print("\nInvalid dates or headers found.")
         print(
-            f"Found {len(invalid_dates)} date(s) that do not match any expected format."
+            f"Please email file '{invalid_output_filename}' to the project maintainer to fix.\n"
         )
-        print("Please email the below information to the project maintainer to fix.")
-
-        for invalid_email in invalid_dates:
-            print(invalid_email.date)
-        print()
-
-    # Check for invalid headers
-    if invalid_headers:
-        print("\n--------- ALERT ---------")
-        print(
-            f"Found {len(invalid_headers)} headers that do not match any expected format."
-        )
-        print("Please email the below information to the project maintainer to fix.")
-
-        for invalid_email in invalid_headers:
-            print(invalid_email.header)
-        print()
+        export_invalid_emails(invalid_dates, invalid_headers, invalid_output_filename)
 
     num_emails_exported = len(emails) - (len(invalid_dates) + len(invalid_headers))
     print(
