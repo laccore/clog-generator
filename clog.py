@@ -129,7 +129,10 @@ def validate_and_sort_emails(emails, year=None, verbose=False):
     return valid_emails, bad_formats
 
 
-def export_emails(emails, output_filename, exclude_subject=False):
+def export_emails(emails, output_filename, exclude_subject=False, verbose=False):
+    if verbose and exclude_subject:
+        print("Excluding email Subject field from export.")
+
     headers = ["Subject", "From Name", "From Email", "To", "Date"]
     with open(output_filename, "w", newline="", encoding="utf-8") as out_file:
         writer = csv.writer(out_file, quoting=csv.QUOTE_MINIMAL)
@@ -161,7 +164,7 @@ def export_bad_emails(bad_formats, output_filename):
 @Gooey(program_name="CSD Contact Log (CLOG) Generator")
 def main():
     parser = GooeyParser(
-        description="Export data (Subject, From, To, Date) from a .mbox file to a CSV"
+        description="Export data (Subject, From Name, From Email, To, Date) from a .mbox file to a CSV"
     )
     parser.add_argument(
         "mbox",
@@ -192,31 +195,33 @@ def main():
         action="store_true",
         help="Print troubleshooting information",
     )
-    args = parser.parse_args()
 
     start_time = timeit.default_timer()
-
+    args = parser.parse_args()
     mailbox_filename = args.mbox
     output_filename = mailbox_filename.replace(".mbox", ".csv")
+    year = int(args.year)
+    verbose = args.verbose
+    exclude_subject = args.nosubject
 
     # Process mailbox
-    print(f"Beginning processing of {mailbox_filename}...")
-    emails, num_emails = process_mbox(mailbox_filename, args.verbose)
+    print(f"Beginning processing of {mailbox_filename}...", end="\r")
+    emails, num_emails = process_mbox(mailbox_filename, verbose)
+    print(f"Processed mailbox {mailbox_filename}.        ", end="\n")
 
     # Validate and sort emails
     (
         valid_emails,
         bad_formats,
-    ) = validate_and_sort_emails(emails, int(args.year))
+    ) = validate_and_sort_emails(emails, year, verbose)
 
     # Export data
     print(f"Beginning export of {len(valid_emails)} emails to {output_filename}...")
-    export_emails(valid_emails, output_filename, args.nosubject)
-
-    # Export bad dates/headers
+    export_emails(valid_emails, output_filename, exclude_subject, verbose)
     if bad_formats:
         export_bad_emails(bad_formats, output_filename)
 
+    # Done
     print(
         f"{num_emails} emails were found and {len(valid_emails)} were exported to {output_filename}."
     )
