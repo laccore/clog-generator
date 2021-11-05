@@ -7,6 +7,7 @@ import timeit
 from email.header import decode_header, make_header
 
 import arrow
+from flanker.addresslib import address
 from gooey import Gooey, GooeyParser
 
 
@@ -14,7 +15,10 @@ class Email:
     def __init__(self, subject, from_address, to_address, date):
         self.valid_date = True
         self.valid_headers = True
-        self.from_address = self._clean_header(from_address)
+        self.from_address = address.parse(self._clean_header(from_address))
+        self.from_address_email = self.from_address.address
+        self.from_address_name = self.from_address.display_name
+        self.from_address_host = self.from_address.hostname
         self.to_address = self._clean_header(to_address)
         self.subject = self._clean_header(subject)
         self.date = self._validate_date(date)
@@ -76,7 +80,15 @@ class Email:
         return "\n".join(out_str)
 
     def __iter__(self):
-        return iter([self.subject, self.from_address, self.to_address, self.us_date])
+        return iter(
+            [
+                self.subject,
+                self.from_address_name,
+                self.from_address_email,
+                self.to_address,
+                self.us_date,
+            ]
+        )
 
 
 def process_mbox(mbox_filename, year=None, verbose=False):
@@ -99,7 +111,7 @@ def process_mbox(mbox_filename, year=None, verbose=False):
 
 
 def export_emails(emails, output_filename, exclude_subject=False):
-    headers = ["Subject", "From Address", "To Address", "Date"]
+    headers = ["Subject", "From Name", "From Email", "To", "Date"]
     with open(output_filename, "w", newline="", encoding="utf-8") as out_file:
         writer = csv.writer(out_file, quoting=csv.QUOTE_MINIMAL)
         if exclude_subject:
