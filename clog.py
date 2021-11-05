@@ -98,9 +98,14 @@ def process_mbox(mbox_filename, year=None, verbose=False):
     return emails
 
 
-def export_emails(emails, output_filename):
+def export_emails(emails, output_filename, exclude_subject=False):
+    headers = ["Subject", "From Address", "To Address", "Date"]
     with open(output_filename, "w", newline="", encoding="utf-8") as out_file:
         writer = csv.writer(out_file, quoting=csv.QUOTE_MINIMAL)
+        if exclude_subject:
+            headers.pop(0)
+            emails = [list(email)[1:] for email in emails]
+        writer.writerow(headers)
         writer.writerows(emails)
 
 
@@ -134,6 +139,14 @@ def main():
         metavar="Year",
         help="Exclude emails not from this year",
         default=datetime.datetime.now().year - 1,
+    )
+    parser.add_argument(
+        "-ns",
+        "--nosubject",
+        metavar="No Subject",
+        action="store_true",
+        help="Exclude email Subject from exports",
+        default=False,
     )
     parser.add_argument(
         "-v",
@@ -170,7 +183,7 @@ def main():
 
     # Export data
     print(f"Beginning export of {len(validated_emails)} emails to {output_filename}...")
-    export_emails(validated_emails, output_filename)
+    export_emails(validated_emails, output_filename, args.nosubject)
 
     # Export invalid dates/headers
     if invalid_dates or invalid_headers:
