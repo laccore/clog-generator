@@ -91,12 +91,9 @@ class Email:
         )
 
 
-def process_mbox(mbox_filename, year=None, verbose=False):
+def process_mbox(mbox_filename, verbose=False):
     count = 0
     emails = []
-
-    if verbose and year:
-        print(f"Excluding emails not from year {year}.")
 
     for message in mailbox.mbox(mbox_filename):
         count += 1
@@ -107,7 +104,32 @@ def process_mbox(mbox_filename, year=None, verbose=False):
         if verbose and (count % 1000 == 0):
             print(f"INFO: {count} emails processed.")
 
-    return emails
+    return emails, count
+
+
+def validate_and_sort_emails(emails, year=None, verbose=False):
+    if verbose and year:
+        print(f"Excluding emails not from year {year}.")
+
+    # Sort emails if they had valid dates and headers
+    bad_date_formats = []
+    bad_header_formats = []
+    validated_emails = []
+
+    for email in emails:
+        if not email.valid_date:
+            bad_date_formats.append(email)
+        elif not email.valid_headers:
+            bad_header_formats.append(email)
+        elif email.year != year:
+            pass
+        else:
+            validated_emails.append(email)
+
+    # Sort valid emails based on datetime
+    validated_emails = sorted(validated_emails, key=lambda x: x.date)
+
+    return validated_emails, bad_date_formats, bad_header_formats
 
 
 def export_emails(emails, output_filename, exclude_subject=False):
@@ -121,17 +143,20 @@ def export_emails(emails, output_filename, exclude_subject=False):
         writer.writerows(emails)
 
 
-def export_invalid_emails(invalid_dates, invalid_headers, output_filename):
+def export_bad_emails(bad_date_formats, bad_header_formats, output_filename):
+    output_filename = output_filename.replace(".csv", "_bad_emails.csv")
+    print("\nbad dates or headers found.")
+    print(f"Please email file '{output_filename}' to the project maintainer to fix.\n")
     with open(output_filename, "w", newline="", encoding="utf-8") as out_file:
         writer = csv.writer(out_file, quoting=csv.QUOTE_MINIMAL)
 
-        if invalid_dates:
-            for invalid_email in invalid_dates:
-                writer.writerow(["Incorrect Date Format", invalid_email.date])
+        if bad_date_formats:
+            for bad_email in bad_date_formats:
+                writer.writerow(["Incorrect Date Format", bad_email.date])
 
-        if invalid_headers:
-            for invalid_email in invalid_headers:
-                writer.writerow(["Incorrect Header Format", invalid_email.header])
+        if bad_header_formats:
+            for bad_email in bad_header_formats:
+                writer.writerow(["Incorrect Header Format", bad_email.header])
 
 
 @Gooey(program_name="CSDCO CLOG Generator")
@@ -151,6 +176,7 @@ def main():
         metavar="Year",
         help="Exclude emails not from this year",
         default=datetime.datetime.now().year - 1,
+        type=int,
     )
     parser.add_argument(
         "-ns",
@@ -174,41 +200,27 @@ def main():
     mailbox_filename = args.mbox
     output_filename = mailbox_filename.replace(".mbox", ".csv")
 
-    # Process data
+    # Process mailbox
     print(f"Beginning processing of {mailbox_filename}...")
-    emails = process_mbox(mailbox_filename, args.year, args.verbose)
+    emails, num_emails = process_mbox(mailbox_filename, args.verbose)
 
-    # Sort emails if they had valid dates and headers
-    invalid_dates = []
-    invalid_headers = []
-    validated_emails = []
-    for email in emails:
-        if not email.valid_date:
-            invalid_dates.append(email)
-        elif not email.valid_headers:
-            invalid_headers.append(email)
-        else:
-            validated_emails.append(email)
-
-    # Sort valid emails based on datetime
-    validated_emails = sorted(validated_emails, key=lambda x: x.date)
+    # Validate and sort emails
+    (
+        validated_emails,
+        bad_date_formats,
+        bad_header_formats,
+    ) = validate_and_sort_emails(emails, int(args.year))
 
     # Export data
     print(f"Beginning export of {len(validated_emails)} emails to {output_filename}...")
     export_emails(validated_emails, output_filename, args.nosubject)
 
-    # Export invalid dates/headers
-    if invalid_dates or invalid_headers:
-        invalid_output_filename = output_filename.replace(".csv", "_invalid_emails.csv")
-        print("\nInvalid dates or headers found.")
-        print(
-            f"Please email file '{invalid_output_filename}' to the project maintainer to fix.\n"
-        )
-        export_invalid_emails(invalid_dates, invalid_headers, invalid_output_filename)
+    # Export bad dates/headers
+    if bad_date_formats or bad_header_formats:
+        export_bad_emails(bad_date_formats, bad_header_formats, output_filename)
 
-    num_emails_exported = len(emails) - (len(invalid_dates) + len(invalid_headers))
     print(
-        f"{len(emails)} emails were found and {num_emails_exported} were exported to {output_filename}."
+        f"{num_emails} emails were found and {len(validated_emails)} were exported to {output_filename}."
     )
     print(f"Completed in {round((timeit.default_timer()-start_time), 2)} seconds.")
 
