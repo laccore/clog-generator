@@ -111,25 +111,22 @@ def validate_and_sort_emails(emails, year=None, verbose=False):
     if verbose and year:
         print(f"Excluding emails not from year {year}.")
 
-    # Sort emails if they had valid dates and headers
-    bad_date_formats = []
-    bad_header_formats = []
-    validated_emails = []
+    # Check if emails had valid dates and headers
+    valid_emails = []
+    bad_formats = []
 
     for email in emails:
-        if not email.valid_date:
-            bad_date_formats.append(email)
-        elif not email.valid_headers:
-            bad_header_formats.append(email)
+        if not email.valid_date or not email.valid_headers:
+            bad_formats.append(email)
         elif email.year != year:
             pass
         else:
-            validated_emails.append(email)
+            valid_emails.append(email)
 
     # Sort valid emails based on datetime
-    validated_emails = sorted(validated_emails, key=lambda x: x.date)
+    valid_emails = sorted(valid_emails, key=lambda x: x.date)
 
-    return validated_emails, bad_date_formats, bad_header_formats
+    return valid_emails, bad_formats
 
 
 def export_emails(emails, output_filename, exclude_subject=False):
@@ -142,21 +139,23 @@ def export_emails(emails, output_filename, exclude_subject=False):
         writer.writerow(headers)
         writer.writerows(emails)
 
+    return None
 
-def export_bad_emails(bad_date_formats, bad_header_formats, output_filename):
+
+def export_bad_emails(bad_formats, output_filename):
     output_filename = output_filename.replace(".csv", "_bad_emails.csv")
-    print("\nbad dates or headers found.")
+    print("\nInvalid dates or headers found.")
     print(f"Please email file '{output_filename}' to the project maintainer to fix.\n")
     with open(output_filename, "w", newline="", encoding="utf-8") as out_file:
         writer = csv.writer(out_file, quoting=csv.QUOTE_MINIMAL)
 
-        if bad_date_formats:
-            for bad_email in bad_date_formats:
+        for bad_email in bad_formats:
+            if not bad_email.valid_date:
                 writer.writerow(["Incorrect Date Format", bad_email.date])
-
-        if bad_header_formats:
-            for bad_email in bad_header_formats:
+            if not bad_email.valid_headers:
                 writer.writerow(["Incorrect Header Format", bad_email.header])
+
+    return None
 
 
 @Gooey(program_name="CSDCO CLOG Generator")
@@ -206,21 +205,20 @@ def main():
 
     # Validate and sort emails
     (
-        validated_emails,
-        bad_date_formats,
-        bad_header_formats,
+        valid_emails,
+        bad_formats,
     ) = validate_and_sort_emails(emails, int(args.year))
 
     # Export data
-    print(f"Beginning export of {len(validated_emails)} emails to {output_filename}...")
-    export_emails(validated_emails, output_filename, args.nosubject)
+    print(f"Beginning export of {len(valid_emails)} emails to {output_filename}...")
+    export_emails(valid_emails, output_filename, args.nosubject)
 
     # Export bad dates/headers
-    if bad_date_formats or bad_header_formats:
-        export_bad_emails(bad_date_formats, bad_header_formats, output_filename)
+    if bad_formats:
+        export_bad_emails(bad_formats, output_filename)
 
     print(
-        f"{num_emails} emails were found and {len(validated_emails)} were exported to {output_filename}."
+        f"{num_emails} emails were found and {len(valid_emails)} were exported to {output_filename}."
     )
     print(f"Completed in {round((timeit.default_timer()-start_time), 2)} seconds.")
 
