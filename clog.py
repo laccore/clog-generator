@@ -1,12 +1,12 @@
 import csv
 import datetime
 import mailbox
-import os.path
 import re
 import timeit
 from email.header import decode_header, make_header
 
 import arrow
+from dotenv import load_dotenv
 from flanker.addresslib import address
 from gooey import Gooey, GooeyParser
 
