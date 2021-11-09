@@ -102,7 +102,7 @@ def process_mbox(mbox_filename):
         )
 
         if count % 1000 == 0:
-            print(f"INFO: {count} emails processed.")
+            print(f"  {count} emails processed.")
 
     return emails, count
 
@@ -164,14 +164,14 @@ def export_bad_emails(bad_formats, output_filename):
 @Gooey(program_name="CSD Contact Log (CLOG) Generator")
 def main():
     parser = GooeyParser(
-        description="Export data (Subject, From Name, From Email, To, Date) from a .mbox file to a CSV"
+        description="Export data from a .mbox file to a csv for use in the CLOG",
     )
     parser.add_argument(
         "mbox",
-        metavar=".mbox-file",
+        metavar="mbox File",
         widget="FileChooser",
         type=str,
-        help="Name of mbox file",
+        help="Path to your mbox file",
     )
     parser.add_argument(
         "year",
@@ -183,9 +183,9 @@ def main():
     parser.add_argument(
         "-ns",
         "--nosubject",
-        metavar="No Subject",
+        metavar="Exclude Subject",
         action="store_true",
-        help="Exclude email Subject from exports",
+        help="Exclude the Subject field from export file\n\nThis will reduce the amount of personal information, but make identifying unknown senders more difficult.",
         default=False,
     )
 
@@ -208,14 +208,14 @@ def main():
     ) = validate_and_sort_emails(emails, year)
 
     # Export data
-    print(f"Beginning export of {len(valid_emails)} emails to {output_filename}...")
+    print(f"Beginning export of emails to {output_filename}...")
     export_emails(valid_emails, output_filename, exclude_subject)
     if bad_formats:
         export_bad_emails(bad_formats, output_filename)
 
     # Done
     print(
-        f"{num_emails} emails were found and {len(valid_emails)} were exported to {output_filename}."
+        f"\n{num_emails} emails were found and {len(valid_emails)} were exported to {output_filename}.\n"
     )
     print(f"Completed in {round((timeit.default_timer()-start_time), 2)} seconds.")
 
