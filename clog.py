@@ -1,11 +1,13 @@
 import csv
 import datetime
 import mailbox
+import os
 import re
 import timeit
 from email.header import decode_header, make_header
 
 import arrow
+import requests
 from dotenv import load_dotenv
 from flanker.addresslib import address
 from gooey import Gooey, GooeyParser
@@ -89,6 +91,58 @@ class Email:
                 self.us_date,
             ]
         )
+
+
+def load_filters():
+    print("Loading updated filters from Quickbase.")
+    filters = {}
+    load_dotenv()
+
+    headers = {
+        "QB-Realm-Hostname": os.environ.get("REALM"),
+        "User-Agent": os.environ.get("UA"),
+        "Authorization": os.environ.get("TOKEN"),
+    }
+
+    qb_ids = [
+        [
+            os.environ.get("DOMAINS_TABLE_ID"),
+            os.environ.get("DOMAINS_COLUMN_ID"),
+            "domains",
+        ],
+        [
+            os.environ.get("EMAILS_TABLE_ID"),
+            os.environ.get("EMAILS_COLUMN_ID"),
+            "emails",
+        ],
+        [
+            os.environ.get("KEYWORDS_TABLE_ID"),
+            os.environ.get("KEYWORDS_COLUMN_ID"),
+            "keywords",
+        ],
+    ]
+
+    for table_id, column_id, name in qb_ids:
+        body = {
+            "from": table_id,
+            "select": [column_id],
+            "where": f"{{{column_id}.XEX.''}}",
+            "options": {"skip": 0, "top": 0, "compareWithAppLocalTime": False},
+        }
+
+        # Make API call
+        r = requests.post(
+            f"https://api.quickbase.com/v1/records/query", headers=headers, json=body
+        )
+
+        # Check if request successfully returned
+        if not r.ok:
+            return None
+
+        # Access the data we want, add to filters dict
+        filters[name] = [record[column_id]["value"] for record in r.json()["data"]]
+
+    return filters
 
 
 def process_mbox(mbox_filename):
@@ -188,6 +242,14 @@ def main():
         help="Exclude the Subject field from export file\n\nThis will reduce the amount of personal information, but make identifying unknown senders more difficult.",
         default=False,
     )
+    parser.add_argument(
+        "-f",
+        "--filter",
+        metavar="Filter Emails",
+        action="store_true",
+        help="Filter out known bad domains and email addresses from export.",
+        default=False,
+    )
 
     start_time = timeit.default_timer()
     args = parser.parse_args()
@@ -195,6 +257,16 @@ def main():
     output_filename = mailbox_filename.replace(".mbox", ".csv")
     year = int(args.year)
     exclude_subject = args.nosubject
+    run_filters = args.filter
+
+    if run_filters:
+        # Load filter lists
+        filters = load_filters()
+        if not filters:
+            print(
+                "ERROR: Could not retrieve filters from Quickbase. Export will not be filtered."
+            )
+            run_filters = False
 
     # Process mailbox
     print(f"Beginning processing of {mailbox_filename}...")
