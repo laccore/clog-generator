@@ -5,4 +5,5 @@ test/
 Gooey/
 *.mbox
 *.csv
+.env
 .DS_Store
