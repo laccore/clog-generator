@@ -230,9 +230,17 @@ def main():
     parser.add_argument(
         "year",
         metavar="Year",
-        help="Exclude emails not from this year",
+        help="Exclude emails not from entered year",
         default=datetime.datetime.now().year - 1,
         type=int,
+    )
+    parser.add_argument(
+        "-f",
+        "--filter",
+        metavar="Filter Emails",
+        action="store_true",
+        help="Filter out known bad domains, email addresses, and subjects from export.",
+        default=True,
     )
     parser.add_argument(
         "-ns",
@@ -240,14 +248,6 @@ def main():
         metavar="Exclude Subject",
         action="store_true",
         help="Exclude the Subject field from export file\n\nThis will reduce the amount of personal information, but make identifying unknown senders more difficult.",
-        default=False,
-    )
-    parser.add_argument(
-        "-f",
-        "--filter",
-        metavar="Filter Emails",
-        action="store_true",
-        help="Filter out known bad domains and email addresses from export.",
         default=False,
     )
 
