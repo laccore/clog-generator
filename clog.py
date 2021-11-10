@@ -131,16 +131,31 @@ def load_filters():
         }
 
         # Make API call
-        r = requests.post(
-            f"https://api.quickbase.com/v1/records/query", headers=headers, json=body
-        )
+        try:
+            r = requests.post(
+                f"https://api.quickbase.com/v1/records/query",
+                headers=headers,
+                json=body,
+            )
+        except requests.ConnectionError:
+            print("Could not make connection to Quickbase. Check internet connection.")
+            return None
 
         # Check if request successfully returned
-        if not r.ok:
+        try:
+            r.raise_for_status()
+        except requests.HTTPError:
+            print("Quickbase servers returned invalid HTTP code.")
+            print(f"{r.ok=}")
+            print(f"{r.status_code=}")
             return None
 
         # Access the data we want, add to filters dict
-        filters[name] = [record[column_id]["value"] for record in r.json()["data"]]
+        try:
+            filters[name] = [record[column_id]["value"] for record in r.json()["data"]]
+        except requests.exceptions.JSONDecodeError:
+            print("JSON returned from Quickbase API could not be decoded.")
+            return None
 
     return filters
 
