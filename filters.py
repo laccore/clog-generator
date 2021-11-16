@@ -1,3 +1,5 @@
+import timeit
+
 import requests
 
 import keys
@@ -30,6 +32,8 @@ def load_filters():
             "keywords",
         ],
     ]
+
+    start_time = timeit.default_timer()
 
     for table_id, column_id, name in qb_ids:
         body = {
@@ -66,6 +70,9 @@ def load_filters():
             print("JSON returned from Quickbase API could not be decoded.")
             return None
 
+    print(
+        f"Updated filters loaded in {round((timeit.default_timer()-start_time), 2)} seconds."
+    )
     return filters
 
 
