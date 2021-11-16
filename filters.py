@@ -1,12 +1,9 @@
-import timeit
-
 import requests
 
 import keys
 
 
 def load_filters():
-    print("Loading updated filters from Quickbase.")
     filters = {}
 
     headers = {
@@ -32,8 +29,6 @@ def load_filters():
             "keywords",
         ],
     ]
-
-    start_time = timeit.default_timer()
 
     for table_id, column_id, name in qb_ids:
         body = {
@@ -65,14 +60,13 @@ def load_filters():
 
         # Access the data we want, add to filters dict
         try:
-            filters[name] = (record[column_id]["value"] for record in r.json()["data"])
+            filters[name] = set(
+                record[column_id]["value"] for record in r.json()["data"]
+            )
         except KeyError:
             print("JSON returned from Quickbase API could not be decoded.")
             return None
 
-    print(
-        f"Filters loaded from Quickbase in {round((timeit.default_timer()-start_time), 2)} seconds."
-    )
     return filters
 
 

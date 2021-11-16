@@ -155,7 +155,7 @@ def check_against_filters(email, filters):
 
 def validate_and_sort_emails(emails, year=None, filters=False):
     if year:
-        print(f"Excluding emails not from year {year}.")
+        print(f"Excluding emails not from year {year}.", "\n")
 
     if filters:
         emails = [check_against_filters(email, filters) for email in emails]
@@ -281,17 +281,23 @@ def main():
 
     if run_filters:
         # Load filter lists
+        print("Loading updated filters from Quickbase.")
+        filter_start_time = timeit.default_timer()
         filters = load_filters()
         if not filters:
             print(
                 "ERROR: Could not retrieve filters from Quickbase. Export will not be filtered."
             )
             run_filters = False
+        print(
+            f"Completed loading filters ({round((timeit.default_timer()-filter_start_time), 2)}s).",
+            "\n",
+        )
 
     # Process mailbox
     print(f"Beginning processing of {mailbox_filename}...")
     emails, num_emails = process_mbox(mailbox_filename)
-    print(f"Processed mailbox {mailbox_filename}.")
+    print(f"Completed mailbox processing.", "\n")
 
     # Validate and sort emails
     (valid_emails, bad_formats, filtered_emails) = validate_and_sort_emails(
@@ -299,29 +305,30 @@ def main():
     )
 
     # Export data
-    print(f"Beginning export of emails to {output_filename}...")
     export_emails(valid_emails, output_filename, exclude_subject)
+    print(f"Exported valid emails to '{output_filename}'.")
 
     if run_filters:
         filtered_output_filename = output_filename.replace(
             ".csv", "_filtered_emails.csv"
         )
-        print(f"Filtered emails exported to '{filtered_output_filename}'")
+        print(f"Exported filtered emails to '{filtered_output_filename}'.")
         export_filtered_emails(filtered_emails, filtered_output_filename)
 
     if bad_formats:
         bad_formats_output_filename = output_filename.replace(".csv", "_bad_emails.csv")
-        print("\nInvalid dates or headers found.")
+        print("\n", "WARNING: Invalid dates or headers found.")
         print(
-            f"Please email file '{bad_formats_output_filename}' to the project maintainer to fix.\n"
+            f"Please email '{bad_formats_output_filename}' to the project maintainer to fix.",
+            "\n",
         )
         export_bad_emails(bad_formats, bad_formats_output_filename)
 
     # Done
+    print()
     print(
-        f"\n{num_emails} emails were found and {len(valid_emails)} were exported to {output_filename}.\n"
+        f"{num_emails} emails were found and {len(valid_emails)} were exported to '{output_filename}' ({round((timeit.default_timer()-start_time), 2)}s).\n",
     )
-    print(f"Completed in {round((timeit.default_timer()-start_time), 2)} seconds.")
 
 
 if __name__ == "__main__":
