@@ -204,7 +204,6 @@ def export_emails(emails, output_filename, exclude_subject=False):
 
 
 def export_filtered_emails(filtered_emails, output_filename):
-    output_filename = output_filename.replace(".csv", "_filtered_emails.csv")
     headers = [
         "Subject",
         "From Name",
@@ -220,13 +219,10 @@ def export_filtered_emails(filtered_emails, output_filename):
         filtered_emails = [email.filtered_iterable() for email in filtered_emails]
         writer.writerows(filtered_emails)
 
-    return None
+    return output_filename
 
 
 def export_bad_emails(bad_formats, output_filename):
-    output_filename = output_filename.replace(".csv", "_bad_emails.csv")
-    print("\nInvalid dates or headers found.")
-    print(f"Please email file '{output_filename}' to the project maintainer to fix.\n")
     with open(output_filename, "w", newline="", encoding="utf-8") as out_file:
         writer = csv.writer(out_file, quoting=csv.QUOTE_MINIMAL)
 
@@ -236,7 +232,7 @@ def export_bad_emails(bad_formats, output_filename):
             if not bad_email.valid_headers:
                 writer.writerow(["Incorrect Header Format", bad_email.header])
 
-    return None
+    return output_filename
 
 
 @Gooey(program_name="CSD Contact Log (CLOG) Generator")
@@ -305,10 +301,21 @@ def main():
     # Export data
     print(f"Beginning export of emails to {output_filename}...")
     export_emails(valid_emails, output_filename, exclude_subject)
-    if bad_formats:
-        export_bad_emails(bad_formats, output_filename)
+
     if run_filters:
-        export_filtered_emails(filtered_emails, output_filename)
+        filtered_output_filename = output_filename.replace(
+            ".csv", "_filtered_emails.csv"
+        )
+        print(f"Filtered emails exported to '{filtered_output_filename}'")
+        export_filtered_emails(filtered_emails, filtered_output_filename)
+
+    if bad_formats:
+        bad_formats_output_filename = output_filename.replace(".csv", "_bad_emails.csv")
+        print("\nInvalid dates or headers found.")
+        print(
+            f"Please email file '{bad_formats_output_filename}' to the project maintainer to fix.\n"
+        )
+        export_bad_emails(bad_formats, bad_formats_output_filename)
 
     # Done
     print(
