@@ -65,13 +65,13 @@ def load_filters():
 
         # Access the data we want, add to filters dict
         try:
-            filters[name] = [record[column_id]["value"] for record in r.json()["data"]]
+            filters[name] = (record[column_id]["value"] for record in r.json()["data"])
         except KeyError:
             print("JSON returned from Quickbase API could not be decoded.")
             return None
 
     print(
-        f"Updated filters loaded in {round((timeit.default_timer()-start_time), 2)} seconds."
+        f"Filters loaded from Quickbase in {round((timeit.default_timer()-start_time), 2)} seconds."
     )
     return filters
 
