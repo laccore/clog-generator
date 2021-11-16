@@ -8,3 +8,4 @@ Gooey/
 *.pyc
 .env
 .DS_Store
+keys.py

@@ -1,33 +1,32 @@
-import os
+from keys import *
+
 import requests
-from dotenv import load_dotenv
 
 
 def load_filters():
     print("Loading updated filters from Quickbase.")
     filters = {}
-    load_dotenv()
 
     headers = {
-        "QB-Realm-Hostname": os.environ.get("REALM"),
-        "User-Agent": os.environ.get("UA"),
-        "Authorization": os.environ.get("TOKEN"),
+        "QB-Realm-Hostname": QB_REALM_HOSTNAME,
+        "User-Agent": USER_AGENT,
+        "Authorization": TOKEN,
     }
 
     qb_ids = [
         [
-            os.environ.get("DOMAINS_TABLE_ID"),
-            os.environ.get("DOMAINS_COLUMN_ID"),
+            DOMAINS_TABLE_ID,
+            DOMAINS_COLUMN_ID,
             "domains",
         ],
         [
-            os.environ.get("EMAILS_TABLE_ID"),
-            os.environ.get("EMAILS_COLUMN_ID"),
+            EMAILS_TABLE_ID,
+            EMAILS_COLUMN_ID,
             "emails",
         ],
         [
-            os.environ.get("KEYWORDS_TABLE_ID"),
-            os.environ.get("KEYWORDS_COLUMN_ID"),
+            KEYWORDS_TABLE_ID,
+            KEYWORDS_COLUMN_ID,
             "keywords",
         ],
     ]
