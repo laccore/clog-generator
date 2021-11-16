@@ -1,6 +1,6 @@
-from keys import *
-
 import requests
+
+import keys
 
 
 def load_filters():
@@ -8,25 +8,25 @@ def load_filters():
     filters = {}
 
     headers = {
-        "QB-Realm-Hostname": QB_REALM_HOSTNAME,
-        "User-Agent": USER_AGENT,
-        "Authorization": TOKEN,
+        "QB-Realm-Hostname": keys.QB_REALM_HOSTNAME,
+        "User-Agent": keys.USER_AGENT,
+        "Authorization": keys.TOKEN,
     }
 
     qb_ids = [
         [
-            DOMAINS_TABLE_ID,
-            DOMAINS_COLUMN_ID,
+            keys.DOMAINS_TABLE_ID,
+            keys.DOMAINS_COLUMN_ID,
             "domains",
         ],
         [
-            EMAILS_TABLE_ID,
-            EMAILS_COLUMN_ID,
+            keys.EMAILS_TABLE_ID,
+            keys.EMAILS_COLUMN_ID,
             "emails",
         ],
         [
-            KEYWORDS_TABLE_ID,
-            KEYWORDS_COLUMN_ID,
+            keys.KEYWORDS_TABLE_ID,
+            keys.KEYWORDS_COLUMN_ID,
             "keywords",
         ],
     ]
