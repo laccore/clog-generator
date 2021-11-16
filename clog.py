@@ -1,7 +1,6 @@
 import csv
 import datetime
 import mailbox
-import os.path
 import re
 import timeit
 from email.header import decode_header, make_header
@@ -9,6 +8,8 @@ from email.header import decode_header, make_header
 import arrow
 from flanker.addresslib import address
 from gooey import Gooey, GooeyParser
+
+from filters import load_filters
 
 
 class Email:
@@ -24,6 +25,9 @@ class Email:
         self.date = self._validate_date(date)
         self.year = self._find_year(self.date)
         self.us_date = self.date.format("M/D/YY")
+        self.passed_filters = None
+        self.filter_reason = None
+        self.filter_value = None
 
     def _validate_date(self, date):
         date_formats = [
@@ -67,6 +71,19 @@ class Email:
             self.valid_headers = False
             return header
 
+    def filtered_iterable(self):
+        return iter(
+            [
+                self.subject,
+                self.from_address_name,
+                self.from_address_email,
+                self.to_address,
+                self.us_date,
+                self.filter_reason,
+                self.filter_value,
+            ]
+        )
+
     def __str__(self):
         out_str = [
             f"From:\t\t{self.from_address}",
@@ -76,7 +93,13 @@ class Email:
             f"US Date:\t{self.us_date}",
             f"Valid Date:\t{self.valid_date}",
             f"Valid Headers:\t{self.valid_headers}",
+            f"Passed Filters:\t{self.passed_filters}",
         ]
+        if not self.passed_filters:
+            out_str += [
+                f"Filter Reason:\t{self.filter_reason}",
+                f"Filter Value:\t{self.filter_value}",
+            ]
         return "\n".join(out_str)
 
     def __iter__(self):
@@ -107,26 +130,61 @@ def process_mbox(mbox_filename):
     return emails, count
 
 
-def validate_and_sort_emails(emails, year=None):
+def check_against_filters(email, filters):
+    domains = filters["domains"]
+    emails = filters["emails"]
+    keywords = filters["keywords"]
+
+    if email.from_address_host in domains:
+        email.passed_filters = False
+        email.filter_reason = "Domain in filter list"
+        email.filter_value = email.from_address_host
+    elif email.from_address_email in emails:
+        email.passed_filters = False
+        email.filter_reason = "Email address in filter list"
+        email.filter_value = email.from_address_email
+    elif any([keyword in email.subject for keyword in keywords]):
+        email.passed_filters = False
+        email.filter_reason = "Subject contains keyword in filter list"
+        email.filter_value = email.subject
+    else:
+        email.passed_filters = True
+
+    return email
+
+
+def validate_and_sort_emails(emails, year=None, filters=False):
     if year:
         print(f"Excluding emails not from year {year}.")
+
+    if filters:
+        emails = [check_against_filters(email, filters) for email in emails]
 
     # Check if emails had valid dates and headers
     valid_emails = []
     bad_formats = []
+    filtered_emails = []
 
     for email in emails:
         if not email.valid_date or not email.valid_headers:
             bad_formats.append(email)
         elif email.year != year:
-            pass
+            email.passed_filters = False
+            email.filter_reason = "Incorrect Year"
+            email.filter_value = email.year
+            filtered_emails.append(email)
+        elif filters and not email.passed_filters:
+            filtered_emails.append(email)
         else:
             valid_emails.append(email)
+
+    if filters:
+        filtered_emails = sorted(filtered_emails, key=lambda x: x.date)
 
     # Sort valid emails based on datetime
     valid_emails = sorted(valid_emails, key=lambda x: x.date)
 
-    return valid_emails, bad_formats
+    return valid_emails, bad_formats, filtered_emails
 
 
 def export_emails(emails, output_filename, exclude_subject=False):
@@ -141,6 +199,26 @@ def export_emails(emails, output_filename, exclude_subject=False):
             emails = [list(email)[1:] for email in emails]
         writer.writerow(headers)
         writer.writerows(emails)
+
+    return None
+
+
+def export_filtered_emails(filtered_emails, output_filename):
+    output_filename = output_filename.replace(".csv", "_filtered_emails.csv")
+    headers = [
+        "Subject",
+        "From Name",
+        "From Email",
+        "To",
+        "Date",
+        "Filter Reason",
+        "Filter Value",
+    ]
+    with open(output_filename, "w", newline="", encoding="utf-8") as out_file:
+        writer = csv.writer(out_file, quoting=csv.QUOTE_MINIMAL)
+        writer.writerow(headers)
+        filtered_emails = [email.filtered_iterable() for email in filtered_emails]
+        writer.writerows(filtered_emails)
 
     return None
 
@@ -176,9 +254,17 @@ def main():
     parser.add_argument(
         "year",
         metavar="Year",
-        help="Exclude emails not from this year",
+        help="Exclude emails not from entered year",
         default=datetime.datetime.now().year - 1,
         type=int,
+    )
+    parser.add_argument(
+        "-f",
+        "--filter",
+        metavar="Filter Emails",
+        action="store_true",
+        help="Filter out known bad domains, email addresses, and subjects from export.",
+        default=True,
     )
     parser.add_argument(
         "-ns",
@@ -195,6 +281,16 @@ def main():
     output_filename = mailbox_filename.replace(".mbox", ".csv")
     year = int(args.year)
     exclude_subject = args.nosubject
+    run_filters = args.filter
+
+    if run_filters:
+        # Load filter lists
+        filters = load_filters()
+        if not filters:
+            print(
+                "ERROR: Could not retrieve filters from Quickbase. Export will not be filtered."
+            )
+            run_filters = False
 
     # Process mailbox
     print(f"Beginning processing of {mailbox_filename}...")
@@ -202,16 +298,17 @@ def main():
     print(f"Processed mailbox {mailbox_filename}.")
 
     # Validate and sort emails
-    (
-        valid_emails,
-        bad_formats,
-    ) = validate_and_sort_emails(emails, year)
+    (valid_emails, bad_formats, filtered_emails) = validate_and_sort_emails(
+        emails, year, filters
+    )
 
     # Export data
     print(f"Beginning export of emails to {output_filename}...")
     export_emails(valid_emails, output_filename, exclude_subject)
     if bad_formats:
         export_bad_emails(bad_formats, output_filename)
+    if run_filters:
+        export_filtered_emails(filtered_emails, output_filename)
 
     # Done
     print(

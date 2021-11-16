@@ -5,4 +5,7 @@ test/
 Gooey/
 *.mbox
 *.csv
+*.pyc
+.env
 .DS_Store
+keys.py
