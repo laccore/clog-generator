@@ -20,7 +20,7 @@ exe = EXE(pyz,
           options,
           gooey_languages, # Add them in to collected files
           gooey_images, # Same here.
-          name='CSDCO CLOG Generator.exe',
+          name='CSD CLOG Generator.exe',
           debug=False,
           strip=None,
           upx=True,
@@ -29,7 +29,7 @@ exe = EXE(pyz,
           icon=os.path.join(gooey_root, 'images', 'program_icon.ico'))
 
 app = BUNDLE(exe,
-             name='CSDCO CLOG Generator.app',
+             name='CSD CLOG Generator.app',
              icon=None,
              bundle_identifier=None,
              info_plist={

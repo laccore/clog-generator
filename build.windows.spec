@@ -20,7 +20,7 @@ exe = EXE(pyz,
           options,
           gooey_languages, # Add them in to collected files
           gooey_images, # Same here.
-          name='CSDCO CLOG Generator.exe',
+          name='CSD CLOG Generator.exe',
           debug=False,
           strip=None,
           upx=True,
