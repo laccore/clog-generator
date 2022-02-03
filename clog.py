@@ -191,7 +191,7 @@ def export_emails(emails, output_filename, exclude_subject=False):
     if exclude_subject:
         print("Excluding email Subject field from export.")
 
-    headers = ["Subject", "From Name", "From Email", "To", "Date"]
+    headers = ["Subject", "Gmail Name", "From Email", "To", "Date"]
     with open(output_filename, "w", newline="", encoding="utf-8") as out_file:
         writer = csv.writer(out_file, quoting=csv.QUOTE_MINIMAL)
         if exclude_subject:
@@ -206,7 +206,7 @@ def export_emails(emails, output_filename, exclude_subject=False):
 def export_filtered_emails(filtered_emails, output_filename):
     headers = [
         "Subject",
-        "From Name",
+        "Gmail Name",
         "From Email",
         "To",
         "Date",
