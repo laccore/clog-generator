@@ -201,42 +201,28 @@ def validate_and_sort_emails(emails, year=None, filters=False):
     return valid_emails, bad_formats, filtered_emails
 
 
-def export_emails(emails, output_filename, exclude_subject=False):
-    if exclude_subject:
-        print("Excluding email Subject field from export.")
-
-    headers = ["Subject", "Gmail Name", "From Email", "To", "Date"]
+def export_csv(output_filename, data, headers=[]):
     with open(output_filename, "w", newline="", encoding="utf-8") as out_file:
         writer = csv.writer(out_file, quoting=csv.QUOTE_MINIMAL)
-        if exclude_subject:
-            headers = headers[1:]
-            emails = [list(email)[1:] for email in emails]
-        writer.writerow(headers)
-        writer.writerows(emails)
 
-    return None
+        if headers:
+            writer.writerow(headers)
+        writer.writerows(data)
+
+    return output_filename
 
 
-def process_filter_stats(emails, print_output=True):
-    email_filter_reasons = [email.filter_reason for email in emails]
-    filter_reasons = set(email_filter_reasons)
-    filter_counts = {
-        filter_reason: email_filter_reasons.count(filter_reason)
-        for filter_reason in filter_reasons
-    }
-    # Sort dict in descending order
-    filter_counts = {
-        k: v for k, v in sorted(filter_counts.items(), key=lambda x: x[1], reverse=True)
-    }
+def export_emails(emails, output_filename, exclude_subject=False):
+    headers = ["Subject", "Gmail Name", "From Email", "To", "Date"]
 
-    print(f"{type(filter_counts)=}")
+    if exclude_subject:
+        print("Excluding email Subject field from export.")
+        headers = headers[1:]
+        emails = [list(email)[1:] for email in emails]
 
-    if print_output:
-        print()
-        print(f"Number of emails filtered: {len(emails)}")
-        print("Number filtered by reason:")
-        for f in filter_counts:
-            print(f"\t{f}: {filter_counts[f]}")
+    export_csv(output_filename, emails, headers)
+
+    return output_filename
 
 
 def export_filtered_emails(filtered_emails, output_filename):
@@ -249,24 +235,55 @@ def export_filtered_emails(filtered_emails, output_filename):
         "Filter Reason",
         "Filter Value",
     ]
-    with open(output_filename, "w", newline="", encoding="utf-8") as out_file:
-        writer = csv.writer(out_file, quoting=csv.QUOTE_MINIMAL)
-        writer.writerow(headers)
-        filtered_emails = [email.filtered_iterable() for email in filtered_emails]
-        writer.writerows(filtered_emails)
+    filtered_emails = [email.filtered_iterable() for email in filtered_emails]
+    export_csv(output_filename, filtered_emails, headers)
 
     return output_filename
 
 
 def export_bad_emails(bad_formats, output_filename):
-    with open(output_filename, "w", newline="", encoding="utf-8") as out_file:
-        writer = csv.writer(out_file, quoting=csv.QUOTE_MINIMAL)
+    headers = ["Filter reason", "Data"]
+    bad_formats_export = []
+    for email in bad_formats:
+        if not email.valid_date:
+            bad_formats_export.append(["Incorrect Date Format", email.date])
+        if not email.valid_headers:
+            bad_formats_export.append(["Incorrect Header Format", email.header])
 
-        for bad_email in bad_formats:
-            if not bad_email.valid_date:
-                writer.writerow(["Incorrect Date Format", bad_email.date])
-            if not bad_email.valid_headers:
-                writer.writerow(["Incorrect Header Format", bad_email.header])
+    export_csv(output_filename, bad_formats_export, headers)
+
+    return output_filename
+
+
+def export_filter_stats(emails, output_filename):
+    filtered_emails_domains = [email.from_address_host for email in emails]
+    filtered_domains = set(filtered_emails_domains)
+    domain_filter_counts = {
+        domain: filtered_emails_domains.count(domain) for domain in filtered_domains
+    }
+    domain_filter_counts = sorted(
+        domain_filter_counts.items(), key=lambda x: x[1], reverse=True
+    )
+
+    filtered_emails_addresses = [email.from_address for email in emails]
+    filtered_email_addresses = set(filtered_emails_addresses)
+    email_address_filter_counts = {
+        email_address: filtered_emails_addresses.count(email_address)
+        for email_address in filtered_email_addresses
+    }
+    email_address_filter_counts = sorted(
+        email_address_filter_counts.items(), key=lambda x: x[1], reverse=True
+    )
+
+    export_data = (
+        [["Domain", "Number of emails filtered"]]
+        + domain_filter_counts
+        + [["", ""]] * 2
+        + [["Email Address", "Number of emails filtered"]]
+        + email_address_filter_counts
+    )
+
+    export_csv(output_filename, export_data)
 
     return output_filename
 
@@ -345,12 +362,16 @@ def main():
     print(f"Exported valid emails to '{output_filename}'.")
 
     if run_filters:
-        filtered_output_filename = output_filename.replace(
-            ".csv", "_filtered_emails.csv"
-        )
-        print(f"Exported filtered emails to '{filtered_output_filename}'.")
-        export_filtered_emails(filtered_emails, filtered_output_filename)
-        process_filter_stats(filtered_emails)
+        export_all_emails = False
+        if export_all_emails:
+            filtered_output_filename = output_filename.replace(
+                ".csv", "all_filtered_emails.csv"
+            )
+            print(f"Exported filtered emails to '{filtered_output_filename}'.")
+            export_filtered_emails(filtered_emails, filtered_output_filename)
+
+        filter_stats_filename = output_filename.replace(".csv", "_filter_stats.csv")
+        export_filter_stats(filtered_emails, filter_stats_filename)
 
     if bad_formats:
         bad_formats_output_filename = output_filename.replace(".csv", "_bad_emails.csv")
