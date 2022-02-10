@@ -278,7 +278,7 @@ def export_filter_stats(emails, output_filename):
     export_data = (
         [["Domain", "Number of emails filtered"]]
         + domain_filter_counts
-        + [["", ""]] * 2
+        + [["", ""]]
         + [["Email Address", "Number of emails filtered"]]
         + email_address_filter_counts
     )
@@ -288,7 +288,7 @@ def export_filter_stats(emails, output_filename):
     return output_filename
 
 
-@Gooey(program_name="CSD Contact Log (CLOG) Generator")
+@Gooey(program_name="CSD Contact Log (CLOG) Generator", default_size=(610, 580))
 def main():
     parser = GooeyParser(
         description="Export data from a .mbox file to a csv for use in the CLOG",
@@ -316,6 +316,14 @@ def main():
         default=True,
     )
     parser.add_argument(
+        "-ef",
+        "--exportfiltered",
+        metavar="Export Filtered Emails",
+        action="store_true",
+        help="Export all filtered emails (for reviewing filter accuracy).",
+        default=False,
+    )
+    parser.add_argument(
         "-ns",
         "--nosubject",
         metavar="Exclude Subject",
@@ -331,6 +339,7 @@ def main():
     year = int(args.year)
     exclude_subject = args.nosubject
     run_filters = args.filter
+    export_filtered = args.exportfiltered
 
     if run_filters:
         # Load filter lists
@@ -362,16 +371,16 @@ def main():
     print(f"Exported valid emails to '{output_filename}'.")
 
     if run_filters:
-        export_all_emails = False
-        if export_all_emails:
+        if export_filtered:
             filtered_output_filename = output_filename.replace(
-                ".csv", "all_filtered_emails.csv"
+                ".csv", "_filtered_emails.csv"
             )
-            print(f"Exported filtered emails to '{filtered_output_filename}'.")
             export_filtered_emails(filtered_emails, filtered_output_filename)
+            print(f"Exported filtered emails to '{filtered_output_filename}'.")
 
         filter_stats_filename = output_filename.replace(".csv", "_filter_stats.csv")
         export_filter_stats(filtered_emails, filter_stats_filename)
+        print(f"Exported filter status to '{filter_stats_filename}'.")
 
     if bad_formats:
         bad_formats_output_filename = output_filename.replace(".csv", "_bad_emails.csv")
