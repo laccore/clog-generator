@@ -39,6 +39,9 @@ class Email:
             r"D[\s+]MMM[\s+]YYYY[\s+]HH:mm:ss[\s+]Z",
             r"ddd,[\s+]D[\s+]MMM[\s+]YYYY[\s+]H:mm[\s+]Z",
             r"MM/D/YY,[\s+]H[\s+]mm[.*]",
+            r"M/D/YY,[\s+]H:m",
+            r"DD[\s+]MMM[\s+]YYYY[\s+]HH:mm:ss",
+            r"MM/DD/YY,[\s+]mm[\s+]HH[\s+]YYYY[.*]",
         ]
 
         arrow_date = None
@@ -134,11 +137,16 @@ def check_against_filters(email, filters):
     domains = filters["domains"]
     emails = filters["emails"]
     keywords = filters["keywords"]
+    staff = filters["staff"]
 
     if email.from_address_host in domains:
         email.passed_filters = False
         email.filter_reason = "Domain in filter list"
         email.filter_value = email.from_address_host
+    elif email.from_address_email in staff:
+        email.passed_filters = False
+        email.filter_reason = "Staff"
+        email.filter_value = email.from_address_email
     elif email.from_address_email in emails:
         email.passed_filters = False
         email.filter_reason = "Email address in filter list"
@@ -179,6 +187,12 @@ def validate_and_sort_emails(emails, year=None, filters=False):
             valid_emails.append(email)
 
     if filters:
+        # Remove staff emails from filtered emails
+        filtered_emails = [
+            email
+            for email in filtered_emails
+            if email.filter_reason not in ("Staff", "Incorrect Year")
+        ]
         filtered_emails = sorted(filtered_emails, key=lambda x: x.date)
 
     # Sort valid emails based on datetime
@@ -187,20 +201,28 @@ def validate_and_sort_emails(emails, year=None, filters=False):
     return valid_emails, bad_formats, filtered_emails
 
 
-def export_emails(emails, output_filename, exclude_subject=False):
-    if exclude_subject:
-        print("Excluding email Subject field from export.")
-
-    headers = ["Subject", "Gmail Name", "From Email", "To", "Date"]
+def export_csv(output_filename, data, headers=[]):
     with open(output_filename, "w", newline="", encoding="utf-8") as out_file:
         writer = csv.writer(out_file, quoting=csv.QUOTE_MINIMAL)
-        if exclude_subject:
-            headers = headers[1:]
-            emails = [list(email)[1:] for email in emails]
-        writer.writerow(headers)
-        writer.writerows(emails)
 
-    return None
+        if headers:
+            writer.writerow(headers)
+        writer.writerows(data)
+
+    return output_filename
+
+
+def export_emails(emails, output_filename, exclude_subject=False):
+    headers = ["Subject", "Gmail Name", "From Email", "To", "Date"]
+
+    if exclude_subject:
+        print("Excluding email Subject field from export.")
+        headers = headers[1:]
+        emails = [list(email)[1:] for email in emails]
+
+    export_csv(output_filename, emails, headers)
+
+    return output_filename
 
 
 def export_filtered_emails(filtered_emails, output_filename):
@@ -213,29 +235,60 @@ def export_filtered_emails(filtered_emails, output_filename):
         "Filter Reason",
         "Filter Value",
     ]
-    with open(output_filename, "w", newline="", encoding="utf-8") as out_file:
-        writer = csv.writer(out_file, quoting=csv.QUOTE_MINIMAL)
-        writer.writerow(headers)
-        filtered_emails = [email.filtered_iterable() for email in filtered_emails]
-        writer.writerows(filtered_emails)
+    filtered_emails = [email.filtered_iterable() for email in filtered_emails]
+    export_csv(output_filename, filtered_emails, headers)
 
     return output_filename
 
 
 def export_bad_emails(bad_formats, output_filename):
-    with open(output_filename, "w", newline="", encoding="utf-8") as out_file:
-        writer = csv.writer(out_file, quoting=csv.QUOTE_MINIMAL)
+    headers = ["Filter reason", "Data"]
+    bad_formats_export = []
+    for email in bad_formats:
+        if not email.valid_date:
+            bad_formats_export.append(["Incorrect Date Format", email.date])
+        if not email.valid_headers:
+            bad_formats_export.append(["Incorrect Header Format", email.header])
 
-        for bad_email in bad_formats:
-            if not bad_email.valid_date:
-                writer.writerow(["Incorrect Date Format", bad_email.date])
-            if not bad_email.valid_headers:
-                writer.writerow(["Incorrect Header Format", bad_email.header])
+    export_csv(output_filename, bad_formats_export, headers)
 
     return output_filename
 
 
-@Gooey(program_name="CSD Contact Log (CLOG) Generator")
+def export_filter_stats(emails, output_filename):
+    filtered_emails_domains = [email.from_address_host for email in emails]
+    filtered_domains = set(filtered_emails_domains)
+    domain_filter_counts = {
+        domain: filtered_emails_domains.count(domain) for domain in filtered_domains
+    }
+    domain_filter_counts = sorted(
+        domain_filter_counts.items(), key=lambda x: x[1], reverse=True
+    )
+
+    filtered_emails_addresses = [email.from_address for email in emails]
+    filtered_email_addresses = set(filtered_emails_addresses)
+    email_address_filter_counts = {
+        email_address: filtered_emails_addresses.count(email_address)
+        for email_address in filtered_email_addresses
+    }
+    email_address_filter_counts = sorted(
+        email_address_filter_counts.items(), key=lambda x: x[1], reverse=True
+    )
+
+    export_data = (
+        [["Domain", "Number of emails filtered"]]
+        + domain_filter_counts
+        + [["", ""]]
+        + [["Email Address", "Number of emails filtered"]]
+        + email_address_filter_counts
+    )
+
+    export_csv(output_filename, export_data)
+
+    return output_filename
+
+
+@Gooey(program_name="CSD Contact Log (CLOG) Generator", default_size=(610, 580))
 def main():
     parser = GooeyParser(
         description="Export data from a .mbox file to a csv for use in the CLOG",
@@ -263,6 +316,14 @@ def main():
         default=True,
     )
     parser.add_argument(
+        "-ef",
+        "--exportfiltered",
+        metavar="Export Filtered Emails",
+        action="store_true",
+        help="Export all filtered emails (for reviewing filter accuracy).",
+        default=False,
+    )
+    parser.add_argument(
         "-ns",
         "--nosubject",
         metavar="Exclude Subject",
@@ -278,6 +339,7 @@ def main():
     year = int(args.year)
     exclude_subject = args.nosubject
     run_filters = args.filter
+    export_filtered = args.exportfiltered
 
     if run_filters:
         # Load filter lists
@@ -309,11 +371,16 @@ def main():
     print(f"Exported valid emails to '{output_filename}'.")
 
     if run_filters:
-        filtered_output_filename = output_filename.replace(
-            ".csv", "_filtered_emails.csv"
-        )
-        print(f"Exported filtered emails to '{filtered_output_filename}'.")
-        export_filtered_emails(filtered_emails, filtered_output_filename)
+        if export_filtered:
+            filtered_output_filename = output_filename.replace(
+                ".csv", "_filtered_emails.csv"
+            )
+            export_filtered_emails(filtered_emails, filtered_output_filename)
+            print(f"Exported filtered emails to '{filtered_output_filename}'.")
+
+        filter_stats_filename = output_filename.replace(".csv", "_filter_stats.csv")
+        export_filter_stats(filtered_emails, filter_stats_filename)
+        print(f"Exported filter status to '{filter_stats_filename}'.")
 
     if bad_formats:
         bad_formats_output_filename = output_filename.replace(".csv", "_bad_emails.csv")
