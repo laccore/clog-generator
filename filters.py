@@ -28,6 +28,11 @@ def load_filters():
             keys.KEYWORDS_COLUMN_ID,
             "keywords",
         ],
+        [
+            keys.STAFF_TABLE_ID,
+            keys.STAFF_COLUMN_ID,
+            "staff",
+        ],
     ]
 
     for table_id, column_id, name in qb_ids:

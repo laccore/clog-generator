@@ -39,6 +39,9 @@ class Email:
             r"D[\s+]MMM[\s+]YYYY[\s+]HH:mm:ss[\s+]Z",
             r"ddd,[\s+]D[\s+]MMM[\s+]YYYY[\s+]H:mm[\s+]Z",
             r"MM/D/YY,[\s+]H[\s+]mm[.*]",
+            r"M/D/YY,[\s+]H:m",
+            r"DD[\s+]MMM[\s+]YYYY[\s+]HH:mm:ss",
+            r"MM/DD/YY,[\s+]mm[\s+]HH[\s+]YYYY[.*]",
         ]
 
         arrow_date = None
@@ -134,11 +137,16 @@ def check_against_filters(email, filters):
     domains = filters["domains"]
     emails = filters["emails"]
     keywords = filters["keywords"]
+    staff = filters["staff"]
 
     if email.from_address_host in domains:
         email.passed_filters = False
         email.filter_reason = "Domain in filter list"
         email.filter_value = email.from_address_host
+    elif email.from_address_email in staff:
+        email.passed_filters = False
+        email.filter_reason = "Staff"
+        email.filter_value = email.from_address_email
     elif email.from_address_email in emails:
         email.passed_filters = False
         email.filter_reason = "Email address in filter list"
@@ -179,6 +187,12 @@ def validate_and_sort_emails(emails, year=None, filters=False):
             valid_emails.append(email)
 
     if filters:
+        # Remove staff emails from filtered emails
+        filtered_emails = [
+            email
+            for email in filtered_emails
+            if email.filter_reason not in ("Staff", "Incorrect Year")
+        ]
         filtered_emails = sorted(filtered_emails, key=lambda x: x.date)
 
     # Sort valid emails based on datetime
@@ -201,6 +215,28 @@ def export_emails(emails, output_filename, exclude_subject=False):
         writer.writerows(emails)
 
     return None
+
+
+def process_filter_stats(emails, print_output=True):
+    email_filter_reasons = [email.filter_reason for email in emails]
+    filter_reasons = set(email_filter_reasons)
+    filter_counts = {
+        filter_reason: email_filter_reasons.count(filter_reason)
+        for filter_reason in filter_reasons
+    }
+    # Sort dict in descending order
+    filter_counts = {
+        k: v for k, v in sorted(filter_counts.items(), key=lambda x: x[1], reverse=True)
+    }
+
+    print(f"{type(filter_counts)=}")
+
+    if print_output:
+        print()
+        print(f"Number of emails filtered: {len(emails)}")
+        print("Number filtered by reason:")
+        for f in filter_counts:
+            print(f"\t{f}: {filter_counts[f]}")
 
 
 def export_filtered_emails(filtered_emails, output_filename):
@@ -314,6 +350,7 @@ def main():
         )
         print(f"Exported filtered emails to '{filtered_output_filename}'.")
         export_filtered_emails(filtered_emails, filtered_output_filename)
+        process_filter_stats(filtered_emails)
 
     if bad_formats:
         bad_formats_output_filename = output_filename.replace(".csv", "_bad_emails.csv")
