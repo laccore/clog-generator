@@ -66,7 +66,7 @@ def load_filters():
         # Access the data we want, add to filters dict
         try:
             filters[name] = set(
-                record[column_id]["value"] for record in r.json()["data"]
+                record[column_id]["value"].lower() for record in r.json()["data"]
             )
         except KeyError:
             print("JSON returned from Quickbase API could not be decoded.")
