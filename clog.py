@@ -17,9 +17,9 @@ class Email:
         self.valid_date = True
         self.valid_headers = True
         self.from_address = address.parse(self._clean_header(from_address))
-        self.from_address_email = self.from_address.address
+        self.from_address_email = self.from_address.address.lower()
         self.from_address_name = self.from_address.display_name
-        self.from_address_host = self.from_address.hostname
+        self.from_address_host = self.from_address.hostname.lower()
         self.to_address = self._clean_header(to_address)
         self.subject = self._clean_header(subject)
         self.date = self._validate_date(date)
