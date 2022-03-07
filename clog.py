@@ -143,6 +143,12 @@ def check_against_filters(email, filters):
         email.passed_filters = False
         email.filter_reason = "Domain in filter list"
         email.filter_value = email.from_address_host
+    elif email.from_address_host.count(".") > 1:
+        parent_domain = ".".join(email.from_address_host.split(".")[-2:])
+        if parent_domain in domains:
+            email.passed_filters = False
+            email.filter_reason = "Parent domain in filter list"
+            email.filter_value = email.from_address_host
     elif email.from_address_email in staff:
         email.passed_filters = False
         email.filter_reason = "Staff"
@@ -257,7 +263,10 @@ def export_bad_emails(bad_formats, output_filename):
 
 def export_filter_stats(emails, output_filename):
     filtered_for_domains = [
-        email for email in emails if email.filter_reason == "Domain in filter list"
+        email
+        for email in emails
+        if email.filter_reason
+        in ("Domain in filter list", "Parent domain in filter list")
     ]
     filtered_emails_domains = [
         email.from_address_host for email in filtered_for_domains
