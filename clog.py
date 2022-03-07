@@ -256,7 +256,12 @@ def export_bad_emails(bad_formats, output_filename):
 
 
 def export_filter_stats(emails, output_filename):
-    filtered_emails_domains = [email.from_address_host for email in emails]
+    filtered_for_domains = [
+        email for email in emails if email.filter_reason == "Domain in filter list"
+    ]
+    filtered_emails_domains = [
+        email.from_address_host for email in filtered_for_domains
+    ]
     filtered_domains = set(filtered_emails_domains)
     domain_filter_counts = {
         domain: filtered_emails_domains.count(domain) for domain in filtered_domains
@@ -265,7 +270,14 @@ def export_filter_stats(emails, output_filename):
         domain_filter_counts.items(), key=lambda x: x[1], reverse=True
     )
 
-    filtered_emails_addresses = [email.from_address for email in emails]
+    filtered_for_email_address = [
+        email
+        for email in emails
+        if email.filter_reason == "Email address in filter list"
+    ]
+    filtered_emails_addresses = [
+        email.from_address for email in filtered_for_email_address
+    ]
     filtered_email_addresses = set(filtered_emails_addresses)
     email_address_filter_counts = {
         email_address: filtered_emails_addresses.count(email_address)
@@ -380,7 +392,7 @@ def main():
 
         filter_stats_filename = output_filename.replace(".csv", "_filter_stats.csv")
         export_filter_stats(filtered_emails, filter_stats_filename)
-        print(f"Exported filter status to '{filter_stats_filename}'.")
+        print(f"Exported filter stats to '{filter_stats_filename}'.")
 
     if bad_formats:
         bad_formats_output_filename = output_filename.replace(".csv", "_bad_emails.csv")
