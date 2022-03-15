@@ -12,7 +12,7 @@ Gooey==1.0.8.1
 idna==3.3
 macholib==1.15.2
 numpy==1.21.4
-Pillow==9.0.0
+Pillow==9.0.1
 ply==3.11
 psutil==5.8.0
 pycparser==2.20
