@@ -123,9 +123,16 @@ def process_mbox(mbox_filename):
 
     for message in mailbox.mbox(mbox_filename):
         count += 1
-        emails.append(
-            Email(message["Subject"], message["From"], message["To"], message["Date"])
-        )
+        try:
+            emails.append(
+                Email(
+                    message["Subject"], message["From"], message["To"], message["Date"]
+                )
+            )
+        except:
+            print("Unable to process email. Logging details:")
+            print(message)
+            print("")
 
         if count % 1000 == 0:
             print(f"  {count} emails processed.")

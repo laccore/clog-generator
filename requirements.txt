@@ -7,17 +7,17 @@ chardet==4.0.0
 charset-normalizer==2.0.7
 colored==1.4.3
 cryptography==35.0.0
--e git://github.com/FCGI/flanker/#egg=flanker
+-e git://github.com/FCGI/flanker/@96d774eb6d67b1c5fafe711394c3756df7bb14ad#egg=flanker
 Gooey==1.0.8.1
 idna==3.3
 macholib==1.15.2
 numpy==1.21.4
-Pillow==9.0.0
+Pillow==8.4.0
 ply==3.11
 psutil==5.8.0
 pycparser==2.20
 pygtrie==2.4.2
-pyinstaller==4.7
+pyinstaller==4.10
 pyinstaller-hooks-contrib==2021.3
 python-dateutil==2.8.2
 regex==2021.11.2
