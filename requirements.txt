@@ -7,7 +7,7 @@ chardet==4.0.0
 charset-normalizer==2.0.7
 colored==1.4.3
 cryptography==35.0.0
--e git://github.com/FCGI/flanker/@96d774eb6d67b1c5fafe711394c3756df7bb14ad#egg=flanker
+-e git://github.com/FCGI/flanker/#egg=flanker
 Gooey==1.0.8.1
 idna==3.3
 macholib==1.15.2
